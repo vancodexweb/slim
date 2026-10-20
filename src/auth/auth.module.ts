@@ -6,6 +6,8 @@ import {User} from "./entities/user.entity";
 import {Profile} from "./entities/profie.entity";
 import {JwtModule} from "@nestjs/jwt";
 import {ConfigModule, ConfigService} from "@nestjs/config";
+import { APP_GUARD } from '@nestjs/core';
+import { AuthGuard } from './guards/auth.guard';
 
 @Module({
   imports: [
@@ -22,6 +24,6 @@ import {ConfigModule, ConfigService} from "@nestjs/config";
       })
   ],
   controllers: [AuthController],
-  providers: [AuthService],
+  providers: [AuthService, { provide: APP_GUARD, useClass: AuthGuard }],
 })
 export class AuthModule {}

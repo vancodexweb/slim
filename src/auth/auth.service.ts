@@ -6,6 +6,7 @@ import {LoginDto, RegisterDto} from './dto/auth.dto';
 import { Profile } from './entities/profie.entity';
 import * as argon2 from 'argon2';
 import {JwtService} from "@nestjs/jwt";
+import { JwtPayload } from './auth.types';
 
 @Injectable()
 export class AuthService {
@@ -71,12 +72,28 @@ export class AuthService {
             throw new UnauthorizedException('Неверный email или пароль');
         }
 
-        const payload = { sub: user.id };
-        const token = await this.jwtService.signAsync(payload);
+        const payload: JwtPayload = { sub: user.id };
+        const accessToken = await this.jwtService.signAsync(payload);
+        const { exp } = this.jwtService.decode<{ exp: number }>(accessToken);
 
         return {
-            message: 'Вход выполнен успешно',
-            accessToken: token,
+            accessToken,
+            expiresAt: new Date(exp * 1000),
+        };
+    }
+
+    async getMe(userId: string) {
+        const user = await this.userRepository.findOneByOrFail({ id: userId });
+        const profile = await this.profileRepository.findOneByOrFail({ userId });
+
+        return {
+            id: user.id,
+            email: user.email,
+            firstName: profile.firstName,
+            lastName: profile.lastName,
+            middleName: profile.middleName,
+            phone: profile.phone,
+            avatarUrl: profile.avatarUrl,
         };
     }
 }
