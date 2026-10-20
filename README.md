@@ -185,7 +185,7 @@ Node.js на сервере тоже не нужен, всё идёт через
 1. На сервере должны быть Docker и плагин `docker compose` (`docker compose version`).
 2. Пользователь раннера должен работать с Docker: `sudo usermod -aG docker gitlab-runner`, затем `sudo systemctl restart gitlab-runner`.
 3. В GitLab (Settings → CI/CD → Variables) создай переменную `ENV_FILE` типа **File** с содержимым боевого `.env` (по образцу `.env.example`). Свободный `PORT` и, если 5432 занят, свой `DB_HOST_PORT`.
-4. Раннер должен быть доступен этому проекту. Если у него выключено «Run untagged jobs», впиши его тег в `.gitlab-ci.yml`.
+4. Добавь раннеру тег `shop-deploy` (Settings → CI/CD → Runners → Edit → Tags): все джобы в `.gitlab-ci.yml` выполняются только на раннере с этим тегом. Галочку «Run untagged jobs» можно снять, а общие раннеры GitLab для проекта лучше выключить.
 
 После первого деплоя заполни каталог: `docker compose -p wellness-shop exec app npm run seed:prod`.
 

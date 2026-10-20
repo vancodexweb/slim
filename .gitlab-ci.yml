@@ -16,8 +16,10 @@ variables:
 
 default:
   image: docker:27-cli
-  # Если у раннера выключено «Run untagged jobs», раскомментируй и впиши его тег:
-  # tags: [your-runner-tag]
+  # Все джобы идут только на раннер нашего сервера. Этот же тег нужно добавить самому раннеру:
+  # Settings -> CI/CD -> Runners -> Edit -> Tags
+  tags:
+    - shop-deploy
 
 build:
   stage: build
