@@ -1,6 +1,7 @@
 import { NestFactory } from '@nestjs/core';
 import {BadRequestException, ValidationPipe} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import cookieParser from 'cookie-parser';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
@@ -24,6 +25,8 @@ async function bootstrap() {
             },
         }),
     );
+
+  app.use(cookieParser());
 
   app.enableCors({
     origin: config.getOrThrow<string>('FRONTEND_URL'),
