@@ -1,16 +1,30 @@
+import { createHash } from 'node:crypto';
 import dataSource from './data-source';
 import { GiftTier } from '../gifts/gift-tier.enum';
 import { Gift } from '../gifts/entities/gift.entity';
 import { OrderItem } from '../orders/entities/order-item.entity';
 import { Order } from '../orders/entities/order.entity';
 
-// Фиксированные id: повторный запуск обновляет те же записи и не создаёт дублей
-const giftId = (n: number) =>
-  `a1000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
-const orderId = (n: number) =>
-  `b2000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
-const itemId = (orderNumber: number, position: number) =>
-  `c3000000-0000-4000-8000-${String(orderNumber * 100 + position).padStart(12, '0')}`;
+// Стабильный UUID из строки (по принципу UUID v5): выглядит как обычный случайный,
+// но одно и то же имя всегда даёт один и тот же id. Поэтому повторный запуск seed
+// обновляет те же записи и не создаёт дублей
+const stableId = (name: string) => {
+  const bytes = createHash('sha1').update(name).digest();
+  bytes[6] = (bytes[6] & 0x0f) | 0x50; // версия 5
+  bytes[8] = (bytes[8] & 0x3f) | 0x80; // вариант RFC 4122
+  const hex = bytes.subarray(0, 16).toString('hex');
+  return [
+    hex.slice(0, 8),
+    hex.slice(8, 12),
+    hex.slice(12, 16),
+    hex.slice(16, 20),
+    hex.slice(20),
+  ].join('-');
+};
+const giftId = (title: string) => stableId(`gift:${title}`);
+const orderId = (number: number) => stableId(`order:${number}`);
+const itemId = (number: number, position: number) =>
+  stableId(`order-item:${number}:${position}`);
 
 const picture = (slug: string) => `https://picsum.photos/seed/${slug}/600/400`;
 
@@ -185,7 +199,7 @@ const gifts: Gift[] = [
     rating: 4.5,
     imageUrl: picture('aroma-pendant'),
   },
-].map((gift, index) => ({ id: giftId(index + 1), ...gift }));
+].map((gift) => ({ id: giftId(gift.title), ...gift }));
 
 // Заказы описаны номером подарка и количеством. Цены и суммы считаются из каталога выше
 const orderDrafts = [
