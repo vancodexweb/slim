@@ -3,7 +3,7 @@ import { DataSource, Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { User } from './entities/user.entity';
 import {LoginDto, RegisterDto} from './dto/auth.dto';
-import { Profile } from './entities/profie.entity';
+import { Profile } from './entities/profile.entity';
 import * as argon2 from 'argon2';
 import {JwtService} from "@nestjs/jwt";
 
