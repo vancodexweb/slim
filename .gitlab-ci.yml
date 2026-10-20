@@ -1,61 +1,50 @@
-# Простой пайплайн: проверки и тесты, сборка, ручной деплой на сервер по SSH
-image: node:22-alpine
+# Пайплайн для GitLab Runner, который стоит на том же сервере, где живёт приложение.
+# Все шаги идут через Docker, поэтому Node.js на сервере ставить не нужно, а SSH-ключи не нужны вовсе:
+# джоба выполняется прямо на сервере.
+#
+# Подходит executor shell (image ниже игнорируется) и docker (с пробросом /var/run/docker.sock).
+# Пользователь gitlab-runner должен иметь доступ к Docker: sudo usermod -aG docker gitlab-runner
 
 stages:
-  - test
   - build
+  - test
   - deploy
 
-# Кэш npm между запусками
-cache:
-  key:
-    files:
-      - package-lock.json
-  paths:
-    - .npm/
+variables:
+  # Временный образ со стадией build из Dockerfile: в нём есть зависимости для тестов и линтера
+  CI_IMAGE: wellness-shop-ci:$CI_PIPELINE_ID
 
 default:
-  before_script:
-    - npm ci --cache .npm --prefer-offline
-
-lint:
-  stage: test
-  script:
-    - npm run lint:check
-
-unit-tests:
-  stage: test
-  script:
-    - npm test
+  image: docker:27-cli
+  # Если у раннера выключено «Run untagged jobs», раскомментируй и впиши его тег:
+  # tags: [your-runner-tag]
 
 build:
   stage: build
   script:
-    - npm run build
-  artifacts:
-    paths:
-      - dist/
-    expire_in: 1 week
+    - docker build --target build -t "$CI_IMAGE" .
 
-# Деплой запускается вручную и только из основной ветки.
-# Сервер должен быть подготовлен заранее: Docker, склонированный репозиторий в DEPLOY_PATH и файл .env рядом.
-# Переменные задаются в GitLab: Settings -> CI/CD -> Variables:
-#   SSH_PRIVATE_KEY - приватный ключ для доступа к серверу
-#   DEPLOY_HOST     - адрес сервера
-#   DEPLOY_USER     - пользователь на сервере
-#   DEPLOY_PATH     - папка с проектом на сервере
+lint:
+  stage: test
+  script:
+    - docker run --rm "$CI_IMAGE" npm run lint:check
+
+unit-tests:
+  stage: test
+  script:
+    - docker run --rm "$CI_IMAGE" npm test
+
+# Деплой только из основной ветки. Настоящий .env берётся из переменной GitLab ENV_FILE
+# (Settings -> CI/CD -> Variables, тип File): секреты не лежат ни в репозитории, ни на сервере
 deploy:
   stage: deploy
-  image: alpine:3.20
-  needs: [lint, unit-tests, build]
   rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-      when: manual
-  before_script:
-    - apk add --no-cache openssh-client
-    - eval "$(ssh-agent -s)"
-    - echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add -
-    - mkdir -p ~/.ssh && chmod 700 ~/.ssh
-    - ssh-keyscan -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts
+  environment: production
   script:
-    - ssh "$DEPLOY_USER@$DEPLOY_HOST" "cd $DEPLOY_PATH && git pull origin $CI_DEFAULT_BRANCH && docker compose up -d --build"
+    - cp "$ENV_FILE" .env
+    - docker compose -p wellness-shop up -d --build
+    - docker compose -p wellness-shop ps
+  after_script:
+    - docker image rm "$CI_IMAGE" || true
+    - docker image prune -f

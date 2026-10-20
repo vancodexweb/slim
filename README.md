@@ -173,12 +173,23 @@ npm test
 
 Пайплайн описан в `.gitlab-ci.yml`:
 
-1. **test:** `lint` и `unit-tests`.
-2. **build:** `nest build`, `dist/` сохраняется как артефакт.
-3. **deploy:** запускается вручную из основной ветки, заходит на сервер по SSH, делает `git pull` и `docker compose up -d --build`.
+1. **build:** собирает стадию `build` из `Dockerfile` (установка зависимостей и компиляция).
+2. **test:** `lint` и `unit-tests` запускаются внутри этого образа.
+3. **deploy:** из основной ветки, `docker compose -p wellness-shop up -d --build`.
 
-Для деплоя в GitLab (Settings → CI/CD → Variables) нужны переменные `SSH_PRIVATE_KEY`, `DEPLOY_HOST`, `DEPLOY_USER`, `DEPLOY_PATH`.
-На сервере должны быть Docker, клон репозитория в `DEPLOY_PATH` и заполненный `.env`.
+GitLab Runner стоит на том же сервере, где живёт приложение, поэтому джобы выполняются прямо там и SSH-ключи не нужны.
+Node.js на сервере тоже не нужен, всё идёт через Docker.
+
+Что нужно один раз настроить:
+
+1. На сервере должны быть Docker и плагин `docker compose` (`docker compose version`).
+2. Пользователь раннера должен работать с Docker: `sudo usermod -aG docker gitlab-runner`, затем `sudo systemctl restart gitlab-runner`.
+3. В GitLab (Settings → CI/CD → Variables) создай переменную `ENV_FILE` типа **File** с содержимым боевого `.env` (по образцу `.env.example`). Свободный `PORT` и, если 5432 занят, свой `DB_HOST_PORT`.
+4. Раннер должен быть доступен этому проекту. Если у него выключено «Run untagged jobs», впиши его тег в `.gitlab-ci.yml`.
+
+После первого деплоя заполни каталог: `docker compose -p wellness-shop exec app npm run seed:prod`.
+
+База публикуется только на `127.0.0.1` сервера. Данные хранятся в Docker-томе и переживают повторные деплои.
 
 ## Структура
 

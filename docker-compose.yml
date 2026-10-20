@@ -6,7 +6,9 @@ services:
       POSTGRES_PASSWORD: ${DB_PASS}
       POSTGRES_DB: ${DB_NAME}
     ports:
-      - "5432:5432"
+      # Только localhost: база не должна торчать в интернет.
+      # Если порт 5432 на машине занят другим проектом, задай DB_HOST_PORT в .env
+      - "127.0.0.1:${DB_HOST_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
