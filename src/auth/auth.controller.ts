@@ -51,7 +51,7 @@ export class AuthController {
       expires: expiresAt,
     });
 
-    return { message: 'Вход выполнен успешно' };
+    return { message: 'Вход выполнен успешно', accessToken };
   }
 
   @Public()
