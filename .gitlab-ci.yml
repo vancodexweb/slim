@@ -1,0 +1,61 @@
+# Простой пайплайн: проверки и тесты, сборка, ручной деплой на сервер по SSH
+image: node:22-alpine
+
+stages:
+  - test
+  - build
+  - deploy
+
+# Кэш npm между запусками
+cache:
+  key:
+    files:
+      - package-lock.json
+  paths:
+    - .npm/
+
+default:
+  before_script:
+    - npm ci --cache .npm --prefer-offline
+
+lint:
+  stage: test
+  script:
+    - npm run lint:check
+
+unit-tests:
+  stage: test
+  script:
+    - npm test
+
+build:
+  stage: build
+  script:
+    - npm run build
+  artifacts:
+    paths:
+      - dist/
+    expire_in: 1 week
+
+# Деплой запускается вручную и только из основной ветки.
+# Сервер должен быть подготовлен заранее: Docker, склонированный репозиторий в DEPLOY_PATH и файл .env рядом.
+# Переменные задаются в GitLab: Settings -> CI/CD -> Variables:
+#   SSH_PRIVATE_KEY - приватный ключ для доступа к серверу
+#   DEPLOY_HOST     - адрес сервера
+#   DEPLOY_USER     - пользователь на сервере
+#   DEPLOY_PATH     - папка с проектом на сервере
+deploy:
+  stage: deploy
+  image: alpine:3.20
+  needs: [lint, unit-tests, build]
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      when: manual
+  before_script:
+    - apk add --no-cache openssh-client
+    - eval "$(ssh-agent -s)"
+    - echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add -
+    - mkdir -p ~/.ssh && chmod 700 ~/.ssh
+    - ssh-keyscan -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts
+  script:
+    - ssh "$DEPLOY_USER@$DEPLOY_HOST" "cd $DEPLOY_PATH && git pull origin $CI_DEFAULT_BRANCH && docker compose up -d --build"
